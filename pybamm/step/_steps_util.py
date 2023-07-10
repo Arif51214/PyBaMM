@@ -184,9 +184,15 @@ class _Step:
     def __eq__(self, other):
         return (
             isinstance(other, _Step)
-            and self.__repr__() == other.__repr__()
-            and self.next_start_time == other.next_start_time
-            and self.end_time == other.end_time
+            and self.type == other.type
+            and self.value == other.value
+            and self.duration == other.duration
+            and self.termination == other.termination
+            and self.period == other.period
+            and self.temperature == other.temperature
+            # and self.__repr__() == other.__repr__()
+            # and self.next_start_time == other.next_start_time
+            # and self.end_time == other.end_time
         )
 
     def __hash__(self):

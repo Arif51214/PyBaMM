@@ -605,40 +605,88 @@ class TestSimulationExperiment(TestCase):
             pybamm.lithium_ion.SPM,
         )
 
-    def test_run_time_stamped_experiment(self):
+
+def test_run_experiment_start_time(self):
+    model = pybamm.lithium_ion.SPM()
+
+    # Test experiment is cut short if next_start_time is early
+    experiment = pybamm.Experiment(
+        [
+            pybamm.step.string(
+                "Discharge at 0.5C for 1 hour",
+                start_time=datetime(2023, 1, 1, 8, 0, 0),
+            ),
+            pybamm.step.string(
+                "Rest for 1 hour", start_time=datetime(2023, 1, 1, 8, 30, 0)
+            ),
+        ]
+    )
+    sim = pybamm.Simulation(model, experiment=experiment)
+    sol = sim.solve(calc_esoh=False)
+    self.assertEqual(sol["Time [s]"].entries[-1], 5400)
+
+    # Test padding rest is added if time stamp is late
+    experiment = pybamm.Experiment(
+        [
+            pybamm.step.string(
+                "Discharge at 0.5C for 1 hour",
+                start_time=datetime(2023, 1, 1, 8, 0, 0),
+            ),
+            pybamm.step.string(
+                "Rest for 1 hour", start_time=datetime(2023, 1, 1, 10, 0, 0)
+            ),
+        ]
+    )
+    sim = pybamm.Simulation(model, experiment=experiment)
+    sol = sim.solve(calc_esoh=False)
+    self.assertEqual(sol["Time [s]"].entries[-1], 10800)
+
+    def test_experiment_start_time_identical_steps(self):
+        # Test that if we have the same step twice, with different start times,
+        # they get processed only once
         model = pybamm.lithium_ion.SPM()
 
-        # Test experiment is cut short if next_start_time is early
         experiment = pybamm.Experiment(
             [
                 pybamm.step.string(
-                    "Discharge at 0.5C for 1 hour",
+                    "Discharge at C/2 for 10 minutes",
                     start_time=datetime(2023, 1, 1, 8, 0, 0),
                 ),
+                pybamm.step.string("Discharge at C/3 for 10 minutes"),
                 pybamm.step.string(
-                    "Rest for 1 hour", start_time=datetime(2023, 1, 1, 8, 30, 0)
+                    "Discharge at C/2 for 10 minutes",
+                    start_time=datetime(2023, 1, 1, 10, 0, 0),
                 ),
+                pybamm.step.string("Discharge at C/3 for 10 minutes"),
             ]
         )
-        sim = pybamm.Simulation(model, experiment=experiment)
-        sol = sim.solve(calc_esoh=False)
-        self.assertEqual(sol["Time [s]"].entries[-1], 5400)
 
-        # Test padding rest is added if time stamp is late
+        sim = pybamm.Simulation(model, experiment=experiment)
+        sim.solve(calc_esoh=False)
+        2 + 2
+
+    def test_experiment_start_time_initial_solution(self):
+        model = pybamm.lithium_ion.SPM()
+
         experiment = pybamm.Experiment(
             [
-                pybamm.step.string(
-                    "Discharge at 0.5C for 1 hour",
-                    start_time=datetime(2023, 1, 1, 8, 0, 0),
-                ),
-                pybamm.step.string(
-                    "Rest for 1 hour", start_time=datetime(2023, 1, 1, 10, 0, 0)
-                ),
+                pybamm.step.string("Discharge at C/2 for 10 minutes"),
+                pybamm.step.string("Rest for 10 minutes"),
             ]
         )
+
         sim = pybamm.Simulation(model, experiment=experiment)
-        sol = sim.solve(calc_esoh=False)
-        self.assertEqual(sol["Time [s]"].entries[-1], 10800)
+        solution = sim.solve(save_at_cycles=None)
+
+        experiment = pybamm.Experiment(
+            [
+                pybamm.step.string("Discharge at C/2 for 20 minutes"),
+                pybamm.step.string("Rest for 20 minutes"),
+            ]
+        )
+
+        sim = pybamm.Simulation(model, experiment=experiment)
+        sim.solve(calc_esoh=False, starting_solution=solution)
 
 
 if __name__ == "__main__":
